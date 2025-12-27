@@ -20,8 +20,6 @@ type
 	TBlockArray = array of TBlock;
 
 const
-	XOFF = 100;
-	YOFF = 100;
 	BSIZE = 10;
 
 procedure shuffle_block_array(var a: TBlockArray);
@@ -46,7 +44,7 @@ var
 	rnwblocks, rnhblocks, remainder_width, remainder_height	: UInt64;
 	total_wblocks, total_hblocks, total_blocks				: UInt64;
 
-	x, y, ox, oy, wx, wy, xbsize, ybsize, pix, wix: UInt64;
+	x, y, ox, oy, wx, wy, xbsize, ybsize, pix: UInt64;
 begin
 	nwblocks := pixels.width / BSIZE;
 	nhblocks := pixels.height / BSIZE;
@@ -82,7 +80,7 @@ begin
 			xbsize := bsize;
 			if x = rnwblocks then xbsize := remainder_width;
 
-			SetLength(make_block_array[y * total_wblocks + x].data, xbsize * ybsize * 3);
+			SetLength(make_block_array[y * total_wblocks + x].data, xbsize * ybsize * 4);
 			make_block_array[y * total_wblocks + x].xorg := wy * xbsize;
 			make_block_array[y * total_wblocks + x].yorg := y * ybsize;
 			make_block_array[y * total_wblocks + x].w := xbsize;
@@ -94,9 +92,10 @@ begin
 				for ox := 0 to xbsize - 1 do
 				begin
 					pix := (((x * xbsize) + ox) * pixels.width + ((y * ybsize) + oy)) * 4;
-					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 3 + 0] := pixels.data[pix];
-					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 3 + 1] := pixels.data[pix + 1];
-					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 3 + 2] := pixels.data[pix + 2];
+					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 4 + 0] := pixels.data[pix];
+					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 4 + 1] := pixels.data[pix + 1];
+					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 4 + 2] := pixels.data[pix + 2];
+					make_block_array[y * total_wblocks + x].data[(oy * xbsize + wx) * 4 + 3] := pixels.data[pix + 3];
 					dec(wx);
 				end;
 			end;
@@ -111,9 +110,12 @@ var
 	sock_addr			: sockaddr;
 	sock				: LongInt;
 	command				: String;
-	x, y, pix			: UInt64;
-	wix					: UInt64;
-	commands			: TStringDynArray;
+	x, y, pix, fix		: UInt64;
+	xoff				: UInt64;
+	yoff				: Real;
+	wix, saved_wix		: UInt64;
+		//		: TStringDynArray;
+	frames				: array of TStringDynArray;
 	raw_blocks			: TBlockArray;
 	block				: TBlock;
 begin
@@ -125,24 +127,14 @@ begin
 	end;
 
 	sock_addr.sin_family := AF_INET;
-	sock_addr.sin_port := htons(1337);
-	//sock_addr.sin_addr.s_addr := (151 shl 24) + (217 shl 16) + (2 shl 8) + 158;
-	//sock_addr.sin_addr.s_addr := StrToNetAddr('151.217.8.158').s_addr;
-	sock_addr.sin_addr.s_addr := StrToNetAddr('127.0.0.1').s_addr;
-
-	if fpConnect(sock, @sock_addr, sizeof(sock_addr)) < 0 then
-	begin
-		writeln('fpConnect');
-		halt(2);
-	end;
-
-	writeln('connected');
+	sock_addr.sin_port := htons(1234);
+	sock_addr.sin_addr.s_addr := StrToNetAddr('151.219.13.203').s_addr;
 
 	x := 0;
-	SetLength(commands, pixels.width * pixels.height);
 
 	raw_blocks := make_block_array(pixels);
 	shuffle_block_array(raw_blocks);
+	SetLength(frames, 192);
 
 	writeln('block count ', Length(raw_blocks));
 
@@ -157,35 +149,66 @@ begin
 			continue;
 		end;
 
-		commands[wix] := Format('OFFSET %d %d'#10, [block.yorg, block.xorg]);
-		for y := 0 to block.h - 1 do
+		xoff := 0;
+		yoff := 1080 / 2;
+		saved_wix := wix;
+		for fix := 0 to High(frames) do
 		begin
-			for x := 0 to block.w - 1 do
-			begin
-				pix := (y * block.w + x) * 3;
-				commands[wix] := commands[wix] + Format('PX %d %d %.2x%.2x%.2x'#10, [
-					y,
-					x,
-					block.data[pix+2],
-					block.data[pix + 1],
-					block.data[pix]
-				]);
+			wix := saved_wix;
+			SetLength(frames[fix], pixels.width * pixels.height + Length(raw_blocks));
+			frames[fix][wix] := Format('OFFSET %d %d'#10, [xoff+block.yorg,round(yoff)+block.xorg]);
+			Inc(wix);
 
-				inc(wix);
+			for y := 0 to block.h - 1 do
+			begin
+				for x := 0 to block.w - 1 do
+				begin
+					pix := (y * block.w + x) * 4;
+					if block.data[pix+3] = 0 then
+						SetLength(frames[fix][wix], 0)
+					else
+					begin
+						frames[fix][wix] := frames[fix][wix] + Format('PX %d %d %.2x%.2x%.2x'#10, [
+							y,
+							x,
+							block.data[pix+2],
+							block.data[pix + 1],
+							block.data[pix]
+						]);
+					end;
+
+					inc(wix);
+				end;
 			end;
-		end;
+			yoff := 1080 / 2 + (40 * sin(xoff / 100));
+			xoff += 10;
+			if xoff > 1920 then
+				xoff := 0;
+			end;
 	end;
 
-	writeln('wix ', wix, ' command capcity ', Length(commands));
+	writeln('wix ', wix, ' command capcity ', Length(frames[fix]));
+	if fpConnect(sock, @sock_addr, sizeof(sock_addr)) < 0 then
+	begin
+		writeln('fpConnect');
+		halt(2);
+	end;
+
+	writeln('connected');
 
 	while True do
 	begin
-		for command in commands do
+		for fix := 0 to High(frames) do
 		begin
-			if fpSend(sock, @command[1], Length(command), 0) < 0 then
+			for command in frames[fix] do
 			begin
-				writeln('fpSend: ', SocketError);
-				halt(123);
+				if Length(command) = 0 then
+					continue;
+				if fpSend(sock, @command[1], Length(command), 0) < 0 then
+				begin
+					writeln('fpSend: ', SocketError);
+					halt(123);
+				end;
 			end;
 		end;
 	end;
