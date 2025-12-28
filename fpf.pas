@@ -21,6 +21,7 @@ type
 
 const
 	BSIZE = 10;
+	COLORS	: array [0..3] of String = ('FFFFFF'#10, 'FF0000'#10, '00FF00'#10, '0000FF'#10);
 
 var
 	startX: UInt64 = 0;
@@ -127,6 +128,7 @@ var
 	command				: String;
 	x, y, pix			: UInt64;
 	wix					: UInt64;
+	cix					: UInt8;
 	commandList			: TStringDynArray;
 	rawBlocks			: TBlockArray;
 	block				: TBlock;
@@ -169,7 +171,7 @@ begin
 				if block.data[pix+3] = 0 then
 					continue;
 
-				commandList[wix] := commandList[wix] + Format('PX %d %d %.2x%.2x%.2x'#10, [
+				commandList[wix] := commandList[wix] + Format('PX %d %d ', [
 					x,
 					y,
 					block.data[pix+2],
@@ -193,6 +195,7 @@ begin
 
 	WriteLn('[INFO] connected');
 
+	cix := 0;
 	while True do
 	begin
 		for command in commandList do
@@ -202,7 +205,15 @@ begin
 				WriteLn('fpSend: ', SocketError);
 				halt(123);
 			end;
+			if fpSend(sock, @COLORS[cix][1], Length(COLORS[cix]), 0) < 0 then
+			begin
+				WriteLn('fpSend: ', SocketError);
+				halt(123);
+			end;
 		end;
+		Inc(cix);
+		if cix > High(COLORS) then
+			cix := 0;
 	end;
 end;
 
