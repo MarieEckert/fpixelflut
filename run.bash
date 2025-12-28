@@ -2,12 +2,13 @@
 
 IP="151.219.13.203"
 PORT="1234"
+STARTX="${2:-0}"
 
 PIDS=()
 declare -a PIDS
 
 for i in $(seq 1 "$1"); do
-	./fpf "${IP}" "${PORT}" &
+	./fpf "${IP}" "${PORT}" "${STARTX}" &
 	PIDS["$i"]="$!"
 	sleep 2
 done
@@ -23,7 +24,7 @@ do
 		fi
 
 		echo "pid ${pid} stopped, restarting..."
-		./fpf "${IP}" "${PORT}" &
+		./fpf "${IP}" "${PORT}" "${STARTX}" &
 		PIDS["$i"]="$!"
 		sleep 2
 	done

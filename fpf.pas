@@ -22,6 +22,9 @@ type
 const
 	BSIZE = 10;
 
+var
+	startX: UInt64 = 0;
+
 procedure ShuffleBlockArray(var a: TBlockArray);
 var
 	i,j	: Integer;
@@ -102,7 +105,10 @@ begin
 					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 0] := pixels.data[pix];
 					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 1] := pixels.data[pix + 1];
 					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 2] := pixels.data[pix + 2];
-					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 3] := pixels.data[pix + 3];
+					if (x * xbsize) < startX then
+						MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 3] := pixels.data[pix + 3]
+					else
+						MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 3] := 0;
 					Dec(wx);
 				end;
 			end;
@@ -125,12 +131,6 @@ var
 	rawBlocks			: TBlockArray;
 	block				: TBlock;
 begin
-	if ParamCount < 2 then
-	begin
-		WriteLn('USAGE: fpf <IP> <PORT>');
-		Halt(1);
-	end;
-
 	sock := fpSocket(AF_INET, SOCK_STREAM, 0);
 	if sock = -1 then
 	begin
@@ -213,6 +213,11 @@ var
 	resource_name	: String;
 	pixels			: TTexture;
 begin
+	if ParamCount < 2 then
+	begin
+		WriteLn('USAGE: fpf <IP> <PORT> [STARTX]');
+		Halt(1);
+	end;
 	resources := TResources.Create;
 	resources.LoadFromFile(ParamStr(0));
 
@@ -224,6 +229,9 @@ begin
 		if StartsStr('IMAGE', resource_name) then
 			pixels := uBMP.LoadTexture(_resource);
 	end;
+
+	if ParamCount > 2 then
+		startX := StrToUInt64(ParamStr(3));
 
 	Fluten(pixels);
 end.
