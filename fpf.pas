@@ -140,8 +140,7 @@ begin
 
 	sockAddress.sin_family := AF_INET;
 	sockAddress.sin_port := htons(StrToInt(ParamStr(2)));
-	if ParamCount < 1 then
-		sockAddress.sin_addr.s_addr := StrToNetAddr(ParamStr(1)).s_addr;
+	sockAddress.sin_addr.s_addr := StrToNetAddr(ParamStr(1)).s_addr;
 
 	x := 0;
 
