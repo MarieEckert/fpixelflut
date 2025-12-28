@@ -167,22 +167,23 @@ begin
 			begin
 				pix := (y * block.w + x) * 4;
 				if block.data[pix+3] = 0 then
-					SetLength(commandList[wix], 0)
-				else
-				begin
-					commandList[wix] := commandList[wix] + Format('PX %d %d %.2x%.2x%.2x'#10, [
-						x,
-						y,
-						block.data[pix+2],
-						block.data[pix + 1],
-						block.data[pix]
-					]);
-				end;
+					continue;
+
+				commandList[wix] := commandList[wix] + Format('PX %d %d %.2x%.2x%.2x'#10, [
+					x,
+					y,
+					block.data[pix+2],
+					block.data[pix + 1],
+					block.data[pix]
+				]);
 
 				Inc(wix);
 			end;
 		end;
 	end;
+
+	WriteLn('[INFO] ', Length(commandList), ' commands allocated, ', wix, ' commands used');
+	SetLength(commandList, wix);
 
 	if fpConnect(sock, @sockAddress, sizeof(sockAddress)) < 0 then
 	begin
@@ -190,21 +191,19 @@ begin
 		halt(2);
 	end;
 
-	WriteLn('connected');
+	WriteLn('[INFO] connected');
 
 	while True do
 	begin
 		for command in commandList do
 		begin
-			if Length(command) = 0 then
-				continue;
 			if fpSend(sock, @command[1], Length(command), 0) < 0 then
 			begin
 				WriteLn('fpSend: ', SocketError);
 				halt(123);
 			end;
 		end;
-end;
+	end;
 end;
 
 var
