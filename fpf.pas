@@ -153,8 +153,8 @@ begin
 	SetLength(commandList, pixels.width * pixels.height + Length(rawBlocks));
 
 	wix := 0;
-	xoff := Random(900);
-	yoff := Random(400);
+	xoff := 100; // Random(900);
+	yoff := 50; // Random(400);
 	WriteLn('[DEBUG] offset: ', xoff, ', ', yoff);
 	for block in rawBlocks do
 	begin
