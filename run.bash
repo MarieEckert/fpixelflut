@@ -32,6 +32,11 @@ done
 while [ "${RUNNING}" -eq 1 ]
 do
 	for i in $(seq 1 "${NPROCS}"); do
+		if [ "${RUNNING}" -ne 1 ]
+		then
+			break
+		fi
+
 		pid="${PIDS[$i]}"
 		if ps -p "$pid" > /dev/null
 		then
