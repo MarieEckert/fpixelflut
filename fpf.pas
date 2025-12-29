@@ -122,9 +122,9 @@ begin
 					{ subtract from pixels.width or height to flip the image
 					  correctly }
 					pix := (
-						(pixels.width - (x * BSIZE + ox))
+						(pixels.width - (x * BSIZE + ox + 1))
 						+
-						(pixels.height - (y * BSIZE + oy))
+						(pixels.height - (y * BSIZE + oy + 1))
 						*
 						pixels.width
 					) * 4;
