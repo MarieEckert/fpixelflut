@@ -261,9 +261,10 @@ begin
 			//	halt(123);
 			//end;
 		end;
-		Inc(cix);
-		if cix > High(COLORS) then
-			cix := 0;
+		//Inc(cix);
+		//if cix > High(COLORS) then
+		//	cix := 0;
+		Sleep(10);
 	end;
 end;
 
