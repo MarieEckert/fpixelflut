@@ -207,21 +207,13 @@ begin
 	SetLength(BuildCommandList, wix);
 end;
 
-procedure Fluten(pixels: TTexture);
+procedure Fluten(const commandList: TStringDynArray);
 var
 	sockAddress			: sockaddr;
 	sock				: LongInt;
 	command				: String;
 	cix					: UInt8;
-	commandList			: TStringDynArray;
-	rawBlocks			: TBlockArray;
 begin
-	rawBlocks := MakeBlockArray(pixels);
-	ShuffleBlockArray(rawBlocks);
-	commandList := BuildCommandList(rawBlocks, pixels.width, pixels.height);
-
-	SetLength(pixels.data, 0);
-
 	sock := fpSocket(AF_INET, SOCK_STREAM, 0);
 	if sock = -1 then
 	begin
@@ -268,6 +260,8 @@ var
 	_resource		: TAbstractResource;
 	i				: Integer;
 	resource_name	: String;
+	rawBlocks		: TBlockArray;
+	commandList		: TStringDynArray;
 	pixels			: TTexture;
 begin
 	if ParamCount < 2 then
@@ -290,5 +284,9 @@ begin
 	if ParamCount > 2 then
 		startX := StrToUInt64(ParamStr(3));
 
-	Fluten(pixels);
+	rawBlocks := MakeBlockArray(pixels);
+	ShuffleBlockArray(rawBlocks);
+	commandList := BuildCommandList(rawBlocks, pixels.width, pixels.height);
+
+	Fluten(commandList);
 end.
