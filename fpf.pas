@@ -21,7 +21,13 @@ type
 
 const
 	BSIZE = 10;
-	COLORS	: array [0..4] of String = ('ff0000'#10, '002bff'#10, '3cff00'#10, 'fdff00'#10, 'fd00ff'#10);
+	COLORS	: array [0..4] of String = (
+		'ff0000'#10,
+		'002bff'#10,
+		'3cff00'#10,
+		'fdff00'#10,
+		'fd00ff'#10
+	);
 
 var
 	startX: UInt64 = 0;
@@ -50,6 +56,7 @@ var
 	rnwblocks, rnhblocks, remainderWidth, remainderHeight	: UInt64;
 	totalWBlocks, totalHBlocks, totalBlocks					: UInt64;
 	x, y, ox, oy, wx, wy, xbsize, ybsize, pix, n			: UInt64;
+	wix, dataWix											: UInt64;
 begin
 	nwblocks := pixels.width / BSIZE;
 	nhblocks := pixels.height / BSIZE;
@@ -87,11 +94,13 @@ begin
 			xbsize := bsize;
 			if x = rnwblocks then xbsize := remainderWidth;
 
-			SetLength(MakeBlockArray[y * totalWBlocks + x].data, xbsize * ybsize * 4);
-			MakeBlockArray[y * totalWBlocks + x].xorg := wy * xbsize;
-			MakeBlockArray[y * totalWBlocks + x].yorg := y * ybsize;
-			MakeBlockArray[y * totalWBlocks + x].w := xbsize;
-			MakeBlockArray[y * totalWBlocks + x].h := ybsize;
+			wix := y * totalWBlocks + x;
+
+			SetLength(MakeBlockArray[wix].data, xbsize * ybsize * 4);
+			MakeBlockArray[wix].xorg := wy * xbsize;
+			MakeBlockArray[wix].yorg := y * ybsize;
+			MakeBlockArray[wix].w := xbsize;
+			MakeBlockArray[wix].h := ybsize;
 
 			Inc(n);
 			Write('[INFO] Preparing Block ', n, '/', Length(MakeBlockArray), #13);
@@ -101,15 +110,27 @@ begin
 				wx := xbsize - 1;
 				for ox := 0 to xbsize - 1 do
 				begin
-					{ subtract from pixels.width or height to flip the imag  correctly }
-					pix := ( ( pixels.width - ((x * xbsize) + ox) ) + ( pixels.height - ((y * ybsize) + oy) ) * pixels.width ) * 4;
-					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 0] := pixels.data[pix];
-					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 1] := pixels.data[pix + 1];
-					MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 2] := pixels.data[pix + 2];
-					if (x * xbsize) < startX then
-						MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 3] := pixels.data[pix + 3]
+					{ subtract from pixels.width or height to flip the image
+					  correctly }
+					pix := (
+						(pixels.width - ((x * xbsize) + ox))
+						+
+						(pixels.height - ((y * ybsize) + oy))
+						*
+						pixels.width
+					) * 4;
+					dataWix := (oy * xbsize + wx) * 4;
+					MakeBlockArray[wix].data[dataWix + 0] :=
+						pixels.data[pix];
+					MakeBlockArray[wix].data[dataWix + 1] :=
+						pixels.data[pix + 1];
+					MakeBlockArray[wix].data[dataWix + 2] :=
+						pixels.data[pix + 2];
+					if (x * xbsize) >= startX then
+						MakeBlockArray[wix].data[dataWix + 3] :=
+							pixels.data[pix + 3]
 					else
-						MakeBlockArray[y * totalWBlocks + x].data[(oy * xbsize + wx) * 4 + 3] := 0;
+						MakeBlockArray[wix].data[dataWix + 3] := 0;
 					Dec(wx);
 				end;
 			end;
@@ -121,42 +142,24 @@ begin
 	WriteLn;
 end;
 
-procedure Fluten(pixels: TTexture);
+function BuildCommandList(
+	const blocks: TBlockArray;
+	const width, height: UInt64
+): TStringDynArray;
 var
-	sockAddress			: sockaddr;
-	sock				: LongInt;
-	command				: String;
 	x, y, pix			: UInt64;
 	xoff, yoff			: UInt64;
 	wix					: UInt64;
-	cix					: UInt8;
-	commandList			: TStringDynArray;
-	rawBlocks			: TBlockArray;
 	block				: TBlock;
 begin
-	sock := fpSocket(AF_INET, SOCK_STREAM, 0);
-	if sock = -1 then
-	begin
-		WriteLn('[FATAL] fpSocket: ', SocketError);
-		halt(2);
-	end;
-
-	sockAddress.sin_family := AF_INET;
-	sockAddress.sin_port := htons(StrToInt(ParamStr(2)));
-	sockAddress.sin_addr.s_addr := StrToNetAddr(ParamStr(1)).s_addr;
-
+	SetLength(BuildCommandList, width * height + Length(blocks));
 	x := 0;
-
-	rawBlocks := MakeBlockArray(pixels);
-	ShuffleBlockArray(rawBlocks);
-
-	SetLength(commandList, pixels.width * pixels.height + Length(rawBlocks));
-
 	wix := 0;
-	xoff := 100; // Random(900);
-	yoff := 50; // Random(400);
+	xoff := 100;
+	yoff := 50;
 	WriteLn('[DEBUG] offset: ', xoff, ', ', yoff);
-	for block in rawBlocks do
+
+	for block in blocks do
 	begin
 		if Length(block.data) = 0 then
 		begin
@@ -164,7 +167,13 @@ begin
 			halt(1);
 		end;
 
-		commandList[wix] := Format('OFFSET %d %d'#10, [block.xorg+xoff,block.yorg+yoff]);
+		BuildCommandList[wix] := Format(
+			'OFFSET %d %d'#10,
+			[
+				block.xorg + xoff,
+				block.yorg + yoff
+			]
+		);
 		Inc(wix);
 
 		for y := 0 to block.h - 1 do
@@ -175,21 +184,54 @@ begin
 				if block.data[pix+3] = 0 then
 					continue;
 
-				commandList[wix] := commandList[wix] + Format('PX %d %d ', [
-					x + xoff,
-					y + yoff,
-					block.data[pix+2],
-					block.data[pix + 1],
-					block.data[pix]
-				]);
+				BuildCommandList[wix] :=
+					BuildCommandList[wix] + Format('PX %d %d ', [
+						x + xoff,
+						y + yoff,
+						block.data[pix+2],
+						block.data[pix + 1],
+						block.data[pix]
+					]);
 
 				Inc(wix);
 			end;
 		end;
 	end;
+	WriteLn(
+		'[INFO] ',
+		Length(BuildCommandList),
+		' commands allocated, ',
+		wix,
+		' commands used'
+	);
+	SetLength(BuildCommandList, wix);
+end;
 
-	WriteLn('[INFO] ', Length(commandList), ' commands allocated, ', wix, ' commands used');
-	SetLength(commandList, wix);
+procedure Fluten(pixels: TTexture);
+var
+	sockAddress			: sockaddr;
+	sock				: LongInt;
+	command				: String;
+	cix					: UInt8;
+	commandList			: TStringDynArray;
+	rawBlocks			: TBlockArray;
+begin
+	rawBlocks := MakeBlockArray(pixels);
+	ShuffleBlockArray(rawBlocks);
+	commandList := BuildCommandList(rawBlocks, pixels.width, pixels.height);
+
+	SetLength(pixels.data, 0);
+
+	sock := fpSocket(AF_INET, SOCK_STREAM, 0);
+	if sock = -1 then
+	begin
+		WriteLn('[FATAL] fpSocket: ', SocketError);
+		halt(2);
+	end;
+
+	sockAddress.sin_family := AF_INET;
+	sockAddress.sin_port := htons(StrToInt(ParamStr(2)));
+	sockAddress.sin_addr.s_addr := StrToNetAddr(ParamStr(1)).s_addr;
 
 	if fpConnect(sock, @sockAddress, sizeof(sockAddress)) < 0 then
 	begin
