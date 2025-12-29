@@ -160,6 +160,7 @@ var
 	xoff, yoff			: UInt64;
 	wix					: UInt64;
 	block				: TBlock;
+	tmp, color			: String;
 begin
 	SetLength(BuildCommandList, width * height + Length(blocks));
 	x := 0;
@@ -168,40 +169,42 @@ begin
 	yoff := 50;
 	WriteLn('[DEBUG] offset: ', xoff, ', ', yoff);
 
-	for block in blocks do
+	for color in COLORS do
 	begin
-		if Length(block.data) = 0 then
+		for block in blocks do
 		begin
-			WriteLn('[FATAL] nil len, xorg ', block.xorg, ' yorg ', block.yorg);
-			halt(1);
-		end;
-
-		BuildCommandList[wix] := Format(
-			'OFFSET %d %d'#10,
-			[
-				block.xorg + xoff,
-				block.yorg + yoff
-			]
-		);
-		Inc(wix);
-
-		for y := 0 to block.h - 1 do
-		begin
-			for x := 0 to block.w - 1 do
+			if Length(block.data) = 0 then
 			begin
-				pix := (y * block.w + x) * 4;
-				if block.data[pix+3] = 0 then
-					continue;
+				WriteLn('[FATAL] nil len, xorg ', block.xorg, ' yorg ', block.yorg);
+				halt(1);
+			end;
 
-				BuildCommandList[wix] :=
-					BuildCommandList[wix] + Format('PX %d %d ', [
-						x + xoff,
-						y + yoff,
-						block.data[pix+2],
-						block.data[pix + 1],
-						block.data[pix]
-					]);
+			BuildCommandList[wix] := Format(
+				'OFFSET %d %d'#10,
+				[
+					block.xorg + xoff,
+					block.yorg + yoff
+				]
+			);
+			Inc(wix);
 
+			for y := 0 to block.h - 1 do
+			begin
+				tmp := '';
+				for x := 0 to block.w - 1 do
+				begin
+					pix := (y * block.w + x) * 4;
+					if block.data[pix+3] = 0 then
+						continue;
+
+					tmp :=
+						tmp + Format('PX %d %d %s'#10, [
+							x + xoff,
+							y + yoff,
+							color
+						]);
+				end;
+				BuildCommandList[wix] := tmp;
 				Inc(wix);
 			end;
 		end;
@@ -252,11 +255,11 @@ begin
 				WriteLn('fpSend: ', SocketError);
 				halt(123);
 			end;
-			if fpSend(sock, @COLORS[cix][1], Length(COLORS[cix]), 0) < 0 then
-			begin
-				WriteLn('fpSend: ', SocketError);
-				halt(123);
-			end;
+			//if fpSend(sock, @COLORS[cix][1], Length(COLORS[cix]), 0) < 0 then
+			//begin
+			//	WriteLn('fpSend: ', SocketError);
+			//	halt(123);
+			//end;
 		end;
 		Inc(cix);
 		if cix > High(COLORS) then
