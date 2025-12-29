@@ -85,20 +85,29 @@ begin
 
 	for y := 0 to totalHBlocks - 1 do
 	begin
-		ybsize := bsize;
+		ybsize := BSIZE;
 		if y = rnhblocks then ybsize := remainderHeight;
 
 		wy := totalWBlocks - 1;
 		for x := 0 to totalWBlocks - 1 do
 		begin
-			xbsize := bsize;
+			xbsize := BSIZE;
 			if x = rnwblocks then xbsize := remainderWidth;
 
 			wix := y * totalWBlocks + x;
 
 			SetLength(MakeBlockArray[wix].data, xbsize * ybsize * 4);
-			MakeBlockArray[wix].xorg := wy * xbsize;
-			MakeBlockArray[wix].yorg := y * ybsize;
+
+			{ TODO: im 99% certain this can be done prettier }
+			if x <> rnwblocks then
+				MakeBlockArray[wix].xorg := wy * xbsize
+			else
+				MakeBlockArray[wix].xorg := BSIZE - xbsize;
+			if y <> rnhblocks then
+				MakeBlockArray[wix].yorg := y * ybsize
+			else
+				MakeBlockArray[wix].yorg := (rnhblocks * BSIZE) - ybsize;
+
 			MakeBlockArray[wix].w := xbsize;
 			MakeBlockArray[wix].h := ybsize;
 
@@ -113,9 +122,9 @@ begin
 					{ subtract from pixels.width or height to flip the image
 					  correctly }
 					pix := (
-						(pixels.width - ((x * xbsize) + ox))
+						(pixels.width - (x * BSIZE + ox))
 						+
-						(pixels.height - ((y * ybsize) + oy))
+						(pixels.height - (y * BSIZE + oy))
 						*
 						pixels.width
 					) * 4;
