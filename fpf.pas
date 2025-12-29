@@ -21,7 +21,7 @@ type
 
 const
 	BSIZE = 10;
-	COLORS	: array [0..3] of String = ('FFFFFF'#10, 'FF0000'#10, '00FF00'#10, '0000FF'#10);
+	COLORS	: array [0..4] of String = ('ff0000'#10, '002bff'#10, '3cff00'#10, 'fdff00'#10, 'fd00ff'#10);
 
 var
 	startX: UInt64 = 0;
@@ -127,6 +127,7 @@ var
 	sock				: LongInt;
 	command				: String;
 	x, y, pix			: UInt64;
+	xoff, yoff			: UInt64;
 	wix					: UInt64;
 	cix					: UInt8;
 	commandList			: TStringDynArray;
@@ -152,6 +153,9 @@ begin
 	SetLength(commandList, pixels.width * pixels.height + Length(rawBlocks));
 
 	wix := 0;
+	xoff := Random(900);
+	yoff := Random(400);
+	WriteLn('[DEBUG] offset: ', xoff, ', ', yoff);
 	for block in rawBlocks do
 	begin
 		if Length(block.data) = 0 then
@@ -160,7 +164,7 @@ begin
 			halt(1);
 		end;
 
-		commandList[wix] := Format('OFFSET %d %d'#10, [block.xorg,block.yorg]);
+		commandList[wix] := Format('OFFSET %d %d'#10, [block.xorg+xoff,block.yorg+yoff]);
 		Inc(wix);
 
 		for y := 0 to block.h - 1 do
@@ -172,8 +176,8 @@ begin
 					continue;
 
 				commandList[wix] := commandList[wix] + Format('PX %d %d ', [
-					x,
-					y,
+					x + xoff,
+					y + yoff,
 					block.data[pix+2],
 					block.data[pix + 1],
 					block.data[pix]
